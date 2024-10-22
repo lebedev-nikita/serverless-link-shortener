@@ -1,0 +1,9 @@
+*.local.*
+*.local
+.DS_Store
+.terraform
+terraform.tfvars
+builds
+node_modules
+.env
+.task

@@ -1,0 +1,56 @@
+version: "3"
+
+tasks:
+  clear:
+    cmd: rm -rf builds/*
+
+  check-dependencies:
+    cmds:
+      - command -v task
+      - command -v terraform
+      - command -v npx
+      - command -v npm
+
+  encrypt:
+    deps: [check-dependencies]
+    cmds:
+      - ccrypt --key $ENCRYPTION_KEY -e ./tf/terraform.tfstate
+      - ccrypt --key $ENCRYPTION_KEY -e ./tf/terraform.tfstate.backup
+    requires:
+      vars: ["ENCRYPTION_KEY"]
+
+  decrypt:
+    deps: [check-dependencies]
+    cmds:
+      - ccrypt --key $ENCRYPTION_KEY -d ./tf/terraform.tfstate.cpt
+      - ccrypt --key $ENCRYPTION_KEY -d ./tf/terraform.tfstate.backup.cpt
+    requires:
+      vars: ["ENCRYPTION_KEY"]
+
+  npm-install:
+    sources:
+      - package.json
+      - package-lock.json
+    cmd: npm install
+
+  build:
+    deps: [npm-install]
+    sources:
+      - src/index.ts
+      - src/data-helpers.ts
+      - package.json
+      - package-lock.json
+    cmds:
+      - { task: clear }
+      - npx tsc
+      - cp package*.json builds
+      - cd builds && zip function.zip *.js package*.json
+
+  deploy:
+    deps: [check-dependencies, build]
+    cmds:
+      - { task: decrypt }
+      - defer: { task: encrypt }
+      - cd tf && terraform apply --auto-approve
+
+dotenv: [.env]
